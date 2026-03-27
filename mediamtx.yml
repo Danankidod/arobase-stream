@@ -1,13 +1,17 @@
 # MediaMTX Configuration for ARObase LIVE
-# Receives RTMP streams from OBS and serves HLS for the web player
+# All traffic on a single HTTP port (Railway compatible)
 
 # Logging
 logLevel: info
 logDestinations: [stdout]
 
-# RTMP server — brands stream here from OBS
-rtmp: yes
-rtmpAddress: :1935
+# API — same port as everything else
+api: yes
+apiAddress: :8888
+
+# WebRTC — needed for WHIP ingestion from OBS
+webrtc: yes
+webrtcAddress: :8888
 
 # HLS server — frontend reads from here
 hls: yes
@@ -19,9 +23,9 @@ hlsPartDuration: 200ms
 hlsSegmentMaxSize: 50M
 hlsVariant: lowLatency
 
-# Disable unused protocols
+# Disable protocols that need dedicated TCP ports (not Railway compatible)
+rtmp: no
 rtsp: no
-webrtc: no
 srt: no
 
 # Paths — accept any stream key under /live/

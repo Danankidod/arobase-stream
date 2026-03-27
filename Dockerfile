@@ -11,9 +11,7 @@ RUN apk add --no-cache wget tar && \
 
 COPY mediamtx.yml /etc/mediamtx/mediamtx.yml
 
-# RTMP port (for OBS ingest)
-EXPOSE 1935
-# HLS port (for web player)
+# Single HTTP port for everything (WHIP ingest + HLS output + API)
 EXPOSE 8888
 
 CMD ["mediamtx", "/etc/mediamtx/mediamtx.yml"]
