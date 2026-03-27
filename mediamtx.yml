@@ -1,0 +1,30 @@
+# MediaMTX Configuration for ARObase LIVE
+# Receives RTMP streams from OBS and serves HLS for the web player
+
+# Logging
+logLevel: info
+logDestinations: [stdout]
+
+# RTMP server — brands stream here from OBS
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS server — frontend reads from here
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigin: '*'
+hlsSegmentCount: 3
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+hlsVariant: lowLatency
+
+# Disable unused protocols
+rtsp: no
+webrtc: no
+srt: no
+
+# Paths — accept any stream key under /live/
+paths:
+  live~:
+    source: publisher
