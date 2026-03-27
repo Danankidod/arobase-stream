@@ -1,11 +1,14 @@
 # MediaMTX Configuration for ARObase LIVE
-# Single port HTTP server for Railway
 
 # Logging
 logLevel: info
 logDestinations: [stdout]
 
-# HLS server — the only public-facing protocol (port 8888)
+# API
+api: yes
+apiAddress: :9997
+
+# HLS server
 hls: yes
 hlsAddress: :8888
 hlsAllowOrigin: '*'
@@ -15,20 +18,15 @@ hlsPartDuration: 200ms
 hlsSegmentMaxSize: 50M
 hlsVariant: lowLatency
 
-# RTMP on internal port (for OBS via TCP Proxy)
+# RTMP on port 1935 (via Railway TCP Proxy for OBS)
 rtmp: yes
 rtmpAddress: :1935
 
-# API on separate internal port
-api: yes
-apiAddress: :9997
-
-# Disable unused protocols
+# Disable unused
 rtsp: no
 webrtc: no
 srt: no
 
-# Paths — accept any stream key
+# Accept all paths
 paths:
   all_others:
-    source: publisher
