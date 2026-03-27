@@ -1,19 +1,11 @@
 # MediaMTX Configuration for ARObase LIVE
-# All traffic on a single HTTP port (Railway compatible)
+# Single port HTTP server for Railway
 
 # Logging
 logLevel: info
 logDestinations: [stdout]
 
-# API — same port as everything else
-api: yes
-apiAddress: :8888
-
-# WebRTC — needed for WHIP ingestion from OBS
-webrtc: yes
-webrtcAddress: :8888
-
-# HLS server — frontend reads from here
+# HLS server — the only public-facing protocol (port 8888)
 hls: yes
 hlsAddress: :8888
 hlsAllowOrigin: '*'
@@ -23,12 +15,20 @@ hlsPartDuration: 200ms
 hlsSegmentMaxSize: 50M
 hlsVariant: lowLatency
 
-# Disable protocols that need dedicated TCP ports (not Railway compatible)
-rtmp: no
+# RTMP on internal port (for OBS via TCP Proxy)
+rtmp: yes
+rtmpAddress: :1935
+
+# API on separate internal port
+api: yes
+apiAddress: :9997
+
+# Disable unused protocols
 rtsp: no
+webrtc: no
 srt: no
 
-# Paths — accept any stream key under /live/
+# Paths — accept any stream key
 paths:
-  live~:
+  all_others:
     source: publisher
