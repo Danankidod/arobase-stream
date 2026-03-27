@@ -1,23 +1,21 @@
 # MediaMTX Configuration for ARObase LIVE
 
-logLevel: info
+logLevel: debug
 logDestinations: [stdout]
 
 # API
 api: yes
 apiAddress: :9997
 
-# HLS output
+# HLS output — standard variant for max compatibility
 hls: yes
 hlsAddress: :8888
 hlsAllowOrigin: '*'
+hlsVariant: mpegts
 hlsSegmentCount: 3
 hlsSegmentDuration: 1s
-hlsPartDuration: 200ms
-hlsSegmentMaxSize: 50M
-hlsVariant: lowLatency
 
-# RTMP input (via Railway TCP Proxy)
+# RTMP input
 rtmp: yes
 rtmpAddress: :1935
 
