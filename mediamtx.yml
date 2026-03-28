@@ -24,16 +24,7 @@ rtsp: no
 webrtc: no
 srt: no
 
-# Accept any path — notify arobase-live when stream stops
+# Accept any path
 paths:
   all_others:
     source: publisher
-    sourceOnDemand: no
-    runOnDemandCloseAfter: 5s
-    runOnUnDemand:
-    runOnReaderConnect:
-    runOnReaderDisconnect:
-    runOnRead:
-    runOnUnread:
-    runOnReady:
-    runOnNotReady: "wget -q -O /dev/null --post-data='{\"event\":\"disconnect\",\"path\":\"$MTX_PATH\"}' --header='Content-Type: application/json' http://arobase-live.railway.internal:3000/api/stream/event || true"
