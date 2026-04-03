@@ -11,9 +11,14 @@ RUN apk add --no-cache wget tar && \
 
 COPY mediamtx.yml /etc/mediamtx/mediamtx.yml
 
+# Create recordings directory
+RUN mkdir -p /recordings
+
 # HLS port (public, for web player)
 EXPOSE 8888
 # RTMP port (use Railway TCP Proxy for OBS)
 EXPOSE 1935
+# API port (for recording management)
+EXPOSE 9997
 
 CMD ["mediamtx", "/etc/mediamtx/mediamtx.yml"]

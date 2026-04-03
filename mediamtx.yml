@@ -24,6 +24,13 @@ rtsp: no
 webrtc: no
 srt: no
 
+# Recording — save all streams as MP4 for replay
+record: yes
+recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S
+recordFormat: fmp4
+recordSegmentDuration: 60m
+recordDeleteAfter: 720h
+
 # Accept any path
 paths:
   all_others:
