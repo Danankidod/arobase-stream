@@ -19,6 +19,10 @@ hlsSegmentDuration: 1s
 rtmp: yes
 rtmpAddress: :1935
 
+# Playback — serve recorded streams for replay (internal, proxied by backend)
+playback: yes
+playbackAddress: :9998
+
 # Disable unused
 rtsp: no
 webrtc: no
@@ -35,3 +39,15 @@ recordDeleteAfter: 720h
 paths:
   all_others:
     source: publisher
+    # Notify backend when stream starts
+    runOnReady: >
+      wget -q -O /dev/null --post-data '{"event":"ready","path":"$MTX_PATH"}'
+      --header='Content-Type: application/json'
+      --header='x-stream-secret: arobase_stream_webhook_2026'
+      'https://www.arobase-live.com/api/stream/event' || true
+    # Notify backend when stream stops → triggers replay
+    runOnNotReady: >
+      wget -q -O /dev/null --post-data '{"event":"disconnect","path":"$MTX_PATH"}'
+      --header='Content-Type: application/json'
+      --header='x-stream-secret: arobase_stream_webhook_2026'
+      'https://www.arobase-live.com/api/stream/event' || true
