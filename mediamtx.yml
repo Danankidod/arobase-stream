@@ -30,7 +30,7 @@ srt: no
 
 # Recording — save all streams as MP4 for replay
 record: yes
-recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S
+recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S_%f
 recordFormat: fmp4
 recordSegmentDuration: 60m
 recordDeleteAfter: 720h
