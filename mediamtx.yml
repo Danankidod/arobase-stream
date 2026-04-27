@@ -12,7 +12,13 @@ hls: yes
 hlsAddress: :8889
 hlsAllowOrigin: '*'
 hlsVariant: mpegts
-hlsSegmentCount: 3
+# 8 × 1s = 8s buffer kept on the server. The previous 3 × 1s = 3s buffer caused
+# viewers to freeze whenever their player drifted >3s behind — every recovered
+# network hiccup made the player request segments MediaMTX had already deleted,
+# producing seg14.ts/seg17.ts 404s and a stuck video. 8s is the standard
+# tradeoff: low enough to stay near-live, large enough to absorb routine
+# packet jitter without 404s.
+hlsSegmentCount: 8
 hlsSegmentDuration: 1s
 
 # RTMP input
