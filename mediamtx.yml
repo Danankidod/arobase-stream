@@ -30,14 +30,14 @@ webrtc: no
 srt: no
 
 # Recording — save all streams as MP4 for replay
-# recordDeleteAfter reduced from 720h (30 days) to 24h: the 5 GB volume was
-# filling up at 94% (4.7 GB) because every test live created a 1-2 GB MP4 that
-# stayed for a month. 24h covers replay-after-show needs without bloating disk.
+# Keep 7 days so viewers can still pre-order from replays after a show.
+# At ~1.5 GB per show × 1-2 shows/week, we stay well under the 5 GB volume cap.
+# start.sh has a safety net that purges oldest files first if usage > 80%.
 record: yes
 recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S_%f
 recordFormat: fmp4
 recordSegmentDuration: 60m
-recordDeleteAfter: 24h
+recordDeleteAfter: 168h
 
 # Accept any path
 paths:
