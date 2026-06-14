@@ -27,10 +27,16 @@ jobs:
         run: |
           docker run --rm -v "$PWD/nginx.conf:/etc/nginx/nginx.conf:ro" nginx:alpine nginx -t
 
-      - name: Guard against hardcoded webhook secret
+      - name: Guard against hardcoded secrets
         run: |
           if grep -RInE "x-stream-secret:[[:space:]]*[A-Za-z0-9_]+" mediamtx.yml; then
-            echo "::error::Hardcoded stream webhook secret found in mediamtx.yml — use \$STREAM_WEBHOOK_SECRET"
+            echo "::error::Hardcoded stream webhook secret in mediamtx.yml — use \$STREAM_WEBHOOK_SECRET"
             exit 1
           fi
-          echo "No hardcoded webhook secret — OK"
+          # The publisher password must stay a placeholder (start.sh injects the
+          # real one at boot from STREAM_PUBLISH_PASSWORD).
+          if ! grep -q "pass: __STREAM_PUBLISH_PASSWORD__" mediamtx.yml; then
+            echo "::error::publisher pass placeholder missing/changed — never commit a real RTMP password"
+            exit 1
+          fi
+          echo "No hardcoded secrets — OK"

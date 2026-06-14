@@ -29,7 +29,7 @@ Couche **ingest + diffusion vidéo** du produit ARObase LIVE (live shopping de d
 | `1935` | RTMP ingest | public (Railway TCP proxy) | OBS push `rtmp://host/live/<stream_key>` |
 | `8889` | HLS | interne (proxifié par nginx) | `hlsSegmentCount: 8`, `hlsSegmentDuration: 1s`, `hlsAllowOrigin: '*'` |
 | `9998` | Playback/replay | interne (proxy nginx `/replay/`) | mux MP4 progressif on-the-fly |
-| `9997` | API REST MediaMTX | interne | ⚠️ **sans auth** (`/v3/paths/list`, `/metrics`, `/pprof`) |
+| `9997` | API REST MediaMTX | **localhost only** | `apiAddress: 127.0.0.1:9997` (F7) — non joignable de l'extérieur |
 | `8888` | nginx public | public | route `/` → HLS, `/replay/` → :9998, `/playback/` → fichiers recordings |
 
 RTSP / WebRTC / SRT : désactivés.
@@ -51,21 +51,30 @@ RTSP / WebRTC / SRT : désactivés.
 ## 6. Commandes
 
 ```bash
+# Env requis : STREAM_PUBLISH_PASSWORD (auth RTMP) + STREAM_WEBHOOK_SECRET (webhook)
 docker build -t arobase-stream .
-docker run -p 8888:8888 -p 1935:1935 -v $(pwd)/recordings:/recordings arobase-stream
-# OBS : Serveur rtmp://<host>:1935/live  |  Clé: <stream_key>
-# Lecture HLS : http://<host>:8888/live/<stream_key>/index.m3u8
+docker run -p 8888:8888 -p 1935:1935 \
+  -e STREAM_PUBLISH_PASSWORD="$(openssl rand -hex 24)" \
+  -e STREAM_WEBHOOK_SECRET="$(openssl rand -hex 24)" \
+  -v $(pwd)/recordings:/recordings arobase-stream
+# OBS : Serveur rtmp://<host>:1935/live  |  Clé: <stream_key>?user=publisher&pass=<STREAM_PUBLISH_PASSWORD>
+# Lecture HLS (viewers, anonyme) : http://<host>:8888/live/<stream_key>/index.m3u8
 ```
 
-## 7. Sécurité — À LIRE (problèmes ouverts)
+## 7. Sécurité (détail + audit : `../arobase-live/docs/SECURITY-AUDIT-2026-06.md`)
 
-🚨 Plusieurs problèmes connus (détail + plan : `../arobase-live/docs/SECURITY-AUDIT-2026-06.md`) :
+**Corrigé** :
+- ✅ **F1** secret webhook → env `STREAM_WEBHOOK_SECRET` (plus de hardcode ; l'ancien `arobase_stream_webhook_2026` reste dans l'historique git → **à roter**).
+- ✅ **F2** auth RTMP : `authMethod: internal` + user `publisher` (mot de passe injecté au boot par `start.sh` depuis `STREAM_PUBLISH_PASSWORD`). Les viewers gardent un accès HLS/replay anonyme (`read`+`playback`).
+- ✅ **F7** API/metrics/pprof → `apiAddress: 127.0.0.1:9997` (localhost only).
+- ✅ **F11** `autoindex off` sur `/playback/`.
+- ✅ **F15** CORS restreint à `https://www.arobase-live.com` + en-têtes de sécurité nginx.
 
-1. **Secret webhook hardcodé en clair** dans `mediamtx.yml` (`arobase_stream_webhook_2026`, commité) → doit passer en variable d'env injectée au boot.
-2. **RTMP sans authentification** (`source: publisher`, pas de `publishUser`/`authMethods`) → quiconque connaît un `stream_key` peut hijacker/pousser un flux. Les `stream_key` sont par ailleurs lisibles en anon côté Supabase (voir `SECURITY-DEBT.md` de arobase-live).
-3. **API MediaMTX `:9997` sans auth** — restreindre à `127.0.0.1` ou activer `apiAuth`.
-4. **`autoindex on` sur `/playback/`** → énumération de tous les enregistrements ; à désactiver.
-5. **CORS `*`** sur `/playback/` et `/replay/` ; en-têtes de sécurité nginx absents.
+**Variables d'env requises au déploiement** : `STREAM_PUBLISH_PASSWORD` (alphanumérique, ex. `openssl rand -hex 24`) et `STREAM_WEBHOOK_SECRET`. Sans `STREAM_PUBLISH_PASSWORD`, `start.sh` **refuse de démarrer** (fail loud volontaire).
+
+**⚠️ Coordination déploiement** : activer l'auth RTMP **casse l'ingest OBS tant qu'OBS n'est pas reconfiguré** avec `?user=publisher&pass=<password>` dans la clé. Déployer + reconfigurer OBS **ensemble** et **tester sur un stream de répétition** avant un vrai défilé.
+
+**Reste ouvert** : F3 (RLS `brand_accounts`/`stream_key` côté Supabase, dans arobase-live — le `stream_key` reste lisible en anon tant que F3 n'est pas fait, ce qui affaiblit l'intérêt de garder le mot de passe publish secret).
 
 ## 8. Gotchas
 

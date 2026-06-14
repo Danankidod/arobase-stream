@@ -3,9 +3,40 @@
 logLevel: info
 logDestinations: [stdout]
 
-# API
+# API — bound to localhost only (F7). The control API (/v3/*), /metrics and
+# /pprof must not be reachable from outside the container. Nothing in arobase
+# calls them remotely (replay resolution goes through the playback server :9998
+# via nginx), so localhost-only closes the exposure without breaking anything.
 api: yes
-apiAddress: :9997
+apiAddress: 127.0.0.1:9997
+
+# Authentication (F2). Viewers read HLS + playback anonymously (the 'any' user
+# keeps read + playback). Publishing (RTMP ingest from OBS) now requires the
+# 'publisher' user: its password is injected at boot by start.sh from the
+# STREAM_PUBLISH_PASSWORD env var — the committed value below is only a
+# placeholder, never a real secret. API/metrics/pprof stay localhost-only.
+# ⚠️ OBS must publish to:  rtmp://<host>:1935/live/<stream_key>?user=publisher&pass=<password>
+# Deploy + reconfigure OBS together and verify on a rehearsal stream.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+      - action: playback
+  - user: publisher
+    pass: __STREAM_PUBLISH_PASSWORD__
+    ips: []
+    permissions:
+      - action: publish
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1']
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
 
 # HLS output
 hls: yes
