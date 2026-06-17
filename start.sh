@@ -24,8 +24,18 @@ if [ -d /recordings ]; then
   echo "[start.sh] /recordings disk usage: $(du -sh /recordings 2>/dev/null | cut -f1) ($(df /recordings | tail -1 | awk '{print $5}') of volume)"
 fi
 
+# Inject the RTMP publish password (F2) into a runtime config. The committed
+# mediamtx.yml only carries a placeholder, never the secret. Fail loudly if the
+# env var is missing rather than silently running with a guessable password.
+# Use an alphanumeric secret (e.g. `openssl rand -hex 24`) so the sed below is
+# safe (no /, &, | or backslash to escape).
+: "${STREAM_PUBLISH_PASSWORD:?STREAM_PUBLISH_PASSWORD env var is required}"
+RUNTIME_CONFIG=/tmp/mediamtx.runtime.yml
+sed "s|__STREAM_PUBLISH_PASSWORD__|${STREAM_PUBLISH_PASSWORD}|g" \
+  /etc/mediamtx/mediamtx.yml > "$RUNTIME_CONFIG"
+
 # Start nginx in background (reverse proxy: port 8888)
 nginx &
 
 # Start MediaMTX in foreground (HLS on 8889, playback on 9998, RTMP on 1935)
-exec mediamtx /etc/mediamtx/mediamtx.yml
+exec mediamtx "$RUNTIME_CONFIG"
