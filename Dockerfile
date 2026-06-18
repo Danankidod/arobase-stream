@@ -4,7 +4,10 @@ FROM alpine:3.20
 RUN apk add --no-cache wget tar nginx
 
 # Download MediaMTX
-ARG MEDIAMTX_VERSION=1.9.3
+# 1.19.1 (from 1.9.3) — security fixes since: hook command injection (1.18.1),
+# directory traversal (1.17.1), auth brute-force delay (1.19.1). Config migrated
+# to the new keys (hlsAllowOrigins, pathDefaults.record*) + MoQ disabled.
+ARG MEDIAMTX_VERSION=1.19.1
 RUN wget -O /tmp/mediamtx.tar.gz \
     "https://github.com/bluenviron/mediamtx/releases/download/v${MEDIAMTX_VERSION}/mediamtx_v${MEDIAMTX_VERSION}_linux_amd64.tar.gz" && \
     tar -xzf /tmp/mediamtx.tar.gz -C /usr/local/bin/ mediamtx && \
