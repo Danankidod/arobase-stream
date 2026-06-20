@@ -16,7 +16,7 @@ Couche **ingest + diffusion vidéo** du produit ARObase LIVE (live shopping de d
 
 | Fichier | Rôle |
 |---|---|
-| `mediamtx` | binaire MediaMTX **v1.9.3** (téléchargé au build, ne pas lire/éditer) |
+| `mediamtx` | binaire MediaMTX **v1.19.1** (téléchargé au build, ne pas lire/éditer) |
 | `mediamtx.yml` | config MediaMTX (protocoles, ports, recording, hooks webhook) |
 | `nginx.conf` | reverse-proxy port public `8888` → HLS/replay + service direct des recordings |
 | `start.sh` | nettoyage disque (LRU si >80%) puis lance nginx (bg) + MediaMTX (fg) |
@@ -27,14 +27,14 @@ Couche **ingest + diffusion vidéo** du produit ARObase LIVE (live shopping de d
 | Port | Protocole | Exposé | Note |
 |---|---|---|---|
 | `1935` | RTMP ingest | public (Railway TCP proxy) | OBS push `rtmp://host/live/<stream_key>` |
-| `8889` | HLS | interne (proxifié par nginx) | `hlsSegmentCount: 8`, `hlsSegmentDuration: 1s`, `hlsAllowOrigin: '*'` |
+| `8889` | HLS | interne (proxifié par nginx) | `hlsSegmentCount: 8`, `hlsSegmentDuration: 1s`, `hlsAllowOrigins: ['*']` |
 | `9998` | Playback/replay | interne (proxy nginx `/replay/`) | mux MP4 progressif on-the-fly |
 | `9997` | API REST MediaMTX | **localhost only** | `apiAddress: 127.0.0.1:9997` (F7) — non joignable de l'extérieur |
 | `8888` | nginx public | public | route `/` → HLS, `/replay/` → :9998, `/playback/` → fichiers recordings |
 
-RTSP / WebRTC / SRT : désactivés.
+RTSP / WebRTC / SRT / **MoQ** : désactivés.
 
-**Recording** : `record: yes`, `recordPath: /recordings/%path/...`, `recordFormat: fmp4`, segments 60 min, `recordDeleteAfter: 168h` (7 j). Volume Railway 5 GB ; `start.sh` purge en LRU si >80%.
+**Recording** (sous `pathDefaults:` depuis MediaMTX 1.19) : `record: yes`, `recordPath: /recordings/%path/...`, `recordFormat: fmp4`, segments 60 min, `recordDeleteAfter: 168h` (7 j). Volume Railway 5 GB ; `start.sh` purge en LRU si >80%.
 
 ## 4. Webhook backend (`mediamtx.yml` paths.all_others)
 
@@ -63,22 +63,23 @@ docker run -p 8888:8888 -p 1935:1935 \
 
 ## 7. Sécurité (détail + audit : `../arobase-live/docs/SECURITY-AUDIT-2026-06.md`)
 
-**Corrigé** :
-- ✅ **F1** secret webhook → env `STREAM_WEBHOOK_SECRET` (plus de hardcode ; l'ancien `arobase_stream_webhook_2026` reste dans l'historique git → **à roter**).
-- ✅ **F2** auth RTMP : `authMethod: internal` + user `publisher` (mot de passe injecté au boot par `start.sh` depuis `STREAM_PUBLISH_PASSWORD`). Les viewers gardent un accès HLS/replay anonyme (`read`+`playback`).
+**Corrigé (déployé + validé en prod, juin 2026)** :
+- ✅ **F1** secret webhook → env `STREAM_WEBHOOK_SECRET` (plus de hardcode ; l'ancien `arobase_stream_webhook_2026` a été **roté le 2026-06-17** — reste dans l'historique git, ne jamais réutiliser). Rotation documentée : `../arobase-live/docs/SECRET-ROTATION.md`.
+- ✅ **F2** auth RTMP : `authMethod: internal` + user `publisher` (mot de passe injecté au boot par `start.sh` depuis `STREAM_PUBLISH_PASSWORD`). Les viewers gardent un accès HLS/replay anonyme (`read`+`playback`). Testé : bon mdp publie, mauvais rejeté.
 - ✅ **F7** API/metrics/pprof → `apiAddress: 127.0.0.1:9997` (localhost only).
 - ✅ **F11** `autoindex off` sur `/playback/`.
 - ✅ **F15** CORS restreint à `https://www.arobase-live.com` + en-têtes de sécurité nginx.
+- ✅ **F18** MediaMTX **1.9.3 → 1.19.1** (fixes hook-injection 1.18.1, directory-traversal 1.17.1, anti-brute-force auth 1.19.1). Config migrée (`hlsAllowOrigins`, `pathDefaults.record*`) + MoQ off.
 
 **Variables d'env requises au déploiement** : `STREAM_PUBLISH_PASSWORD` (alphanumérique, ex. `openssl rand -hex 24`) et `STREAM_WEBHOOK_SECRET`. Sans `STREAM_PUBLISH_PASSWORD`, `start.sh` **refuse de démarrer** (fail loud volontaire).
 
 **⚠️ Coordination déploiement** : activer l'auth RTMP **casse l'ingest OBS tant qu'OBS n'est pas reconfiguré** avec `?user=publisher&pass=<password>` dans la clé. Déployer + reconfigurer OBS **ensemble** et **tester sur un stream de répétition** avant un vrai défilé.
 
-**Reste ouvert** : F3 (RLS `brand_accounts`/`stream_key` côté Supabase, dans arobase-live — le `stream_key` reste lisible en anon tant que F3 n'est pas fait, ce qui affaiblit l'intérêt de garder le mot de passe publish secret).
+**Reste ouvert** : rien. F3 (RLS `brand_accounts`) a été appliqué le **2026-06-18** côté arobase-live — la PII n'est plus lisible en anon. Le `stream_key` reste volontairement lisible (le navigateur viewer en a besoin pour le HLS) ; le push RTMP est protégé séparément par le mot de passe `publisher` (F2).
 
 ## 8. Gotchas
 
 - **B-frames cassent le muxing** HLS depuis OBS → encoder OBS sans B-frames (mémoire `feedback_obs_mediamtx_gotchas`).
 - `hlsSegmentCount: 8` (8 s de buffer) : ne pas redescendre à 3 — provoquait des freezes viewers (404 sur segments déjà purgés).
 - Plusieurs shows d'une même marque **partagent le `stream_key`** → le backend choisit la session replay la plus proche de la date du show.
-- MediaMTX 1.9.3 est **pinné** dans le Dockerfile (`ARG MEDIAMTX_VERSION`) — vérifier les CVE avant bump.
+- MediaMTX **1.19.1** est **pinné** dans le Dockerfile (`ARG MEDIAMTX_VERSION`) — vérifier les CVE + les dépréciations de config (`mediamtx --help`, ou lancer le binaire sur la config et lire les `WAR`) avant tout bump. La config a déjà migré aux clés 1.19 (`hlsAllowOrigins`, `pathDefaults.record*`).
