@@ -81,25 +81,33 @@ pathDefaults:
   recordSegmentDuration: 60m
   recordDeleteAfter: 168h
 
-# Accept any path
+  # Notify backend when stream starts.
+  # The webhook secret is read from the STREAM_WEBHOOK_SECRET env var (injected
+  # at deploy time, e.g. Railway). It is NOT hardcoded here — the previous
+  # committed value (arobase_stream_webhook_2026) is considered compromised and
+  # must be rotated. The header value uses double quotes so the container shell
+  # expands $STREAM_WEBHOOK_SECRET at runtime (MediaMTX runs hooks via sh -c).
+  # ⚠️ Verify on a rehearsal stream that the env var is set before relying on it.
+  runOnReady: >
+    wget -q -O /dev/null --post-data '{"event":"ready","path":"$MTX_PATH"}'
+    --header='Content-Type: application/json'
+    --header="x-stream-secret: $STREAM_WEBHOOK_SECRET"
+    'https://www.arobase-live.com/api/stream/event' || true
+  # Notify backend when stream stops → triggers replay
+  runOnNotReady: >
+    wget -q -O /dev/null --post-data '{"event":"disconnect","path":"$MTX_PATH"}'
+    --header='Content-Type: application/json'
+    --header="x-stream-secret: $STREAM_WEBHOOK_SECRET"
+    'https://www.arobase-live.com/api/stream/event' || true
+
 paths:
+  # Multi-cam angles (generic keys): NOT recorded. The replay only reads the
+  # brand key, and three cameras (~1.9 GB/h each) fill the 5 GB volume in under
+  # an hour. Webhooks still fire (pathDefaults). See arobase-live TODO-multicam.md
+  # (REPLAY MULTICAM) before recording the program angle again.
+  "~^live/(liveA|liveB|liveC)$":
+    source: publisher
+    record: no
+  # Any other path (brand keys): recorded, as before.
   all_others:
     source: publisher
-    # Notify backend when stream starts.
-    # The webhook secret is read from the STREAM_WEBHOOK_SECRET env var (injected
-    # at deploy time, e.g. Railway). It is NOT hardcoded here — the previous
-    # committed value (arobase_stream_webhook_2026) is considered compromised and
-    # must be rotated. The header value uses double quotes so the container shell
-    # expands $STREAM_WEBHOOK_SECRET at runtime (MediaMTX runs hooks via sh -c).
-    # ⚠️ Verify on a rehearsal stream that the env var is set before relying on it.
-    runOnReady: >
-      wget -q -O /dev/null --post-data '{"event":"ready","path":"$MTX_PATH"}'
-      --header='Content-Type: application/json'
-      --header="x-stream-secret: $STREAM_WEBHOOK_SECRET"
-      'https://www.arobase-live.com/api/stream/event' || true
-    # Notify backend when stream stops → triggers replay
-    runOnNotReady: >
-      wget -q -O /dev/null --post-data '{"event":"disconnect","path":"$MTX_PATH"}'
-      --header='Content-Type: application/json'
-      --header="x-stream-secret: $STREAM_WEBHOOK_SECRET"
-      'https://www.arobase-live.com/api/stream/event' || true
