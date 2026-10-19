@@ -6,6 +6,14 @@
 # This prevents a runaway scenario (e.g. unexpected high-frequency shows) from
 # saturating the 5 GB Railway volume mid-event.
 if [ -d /recordings ]; then
+  # One-off wipe (2026-10-19, no replay kept): runs only when WIPE_RECORDINGS_TOKEN
+  # is set AND this token's marker is absent, so a crash restart never wipes again.
+  if [ -n "$WIPE_RECORDINGS_TOKEN" ] && [ ! -f "/recordings/.wiped-$WIPE_RECORDINGS_TOKEN" ]; then
+    echo "[start.sh] WIPE before: $(du -sh /recordings 2>/dev/null | cut -f1) ($(df /recordings | tail -1 | awk '{print $5}') of volume)"
+    find /recordings -mindepth 1 -delete 2>/dev/null
+    touch "/recordings/.wiped-$WIPE_RECORDINGS_TOKEN"
+    echo "[start.sh] WIPE after: $(du -sh /recordings 2>/dev/null | cut -f1) ($(df /recordings | tail -1 | awk '{print $5}') of volume)"
+  fi
   echo "[start.sh] Phase 1: prune /recordings older than 7 days..."
   find /recordings -type f -mmin +10080 -delete 2>/dev/null
   find /recordings -type d -empty -delete 2>/dev/null
