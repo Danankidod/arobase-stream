@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq shellcheck
-          shellcheck -S error start.sh
+          shellcheck -S error start.sh notify.sh
 
       - name: Validate nginx.conf syntax
         run: |
@@ -29,7 +29,7 @@ jobs:
 
       - name: Guard against hardcoded secrets
         run: |
-          if grep -RInE "x-stream-secret:[[:space:]]*[A-Za-z0-9_]+" mediamtx.yml; then
+          if grep -RInE "x-stream-secret:[[:space:]]*[A-Za-z0-9_]+" mediamtx.yml notify.sh; then
             echo "::error::Hardcoded stream webhook secret in mediamtx.yml — use \$STREAM_WEBHOOK_SECRET"
             exit 1
           fi
