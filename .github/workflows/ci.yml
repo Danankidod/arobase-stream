@@ -53,3 +53,10 @@ jobs:
             test "$(grep -c "action: publish" /tmp/rt.yml)" -eq 6
             ! grep -q "__BRAND_PUBLISHERS__\|__STREAM_PUBLISH_PASSWORD__\|lab-master-0123" /tmp/rt.yml
             echo "per-brand publishers OK"'
+
+      - name: B9 — /replay errors do not leak disk paths (red on main, green here)
+        run: |
+          git fetch -q origin main --depth 1
+          git show origin/main:nginx.conf > /tmp/nginx.main.conf
+          sh test/replay-errors.sh /tmp/nginx.main.conf expect-leak
+          sh test/replay-errors.sh nginx.conf expect-clean
