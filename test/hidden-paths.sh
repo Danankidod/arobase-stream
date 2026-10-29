@@ -10,7 +10,7 @@ chmod -R a+rX "$rec"
 cid=$(docker run -d --rm --network host -v "$(realpath "$conf"):/etc/nginx/nginx.conf:ro" -v "$rec:/recordings:ro" nginx:alpine)
 trap 'docker stop "$cid" >/dev/null 2>&1 || true; rm -rf "$rec"' EXIT
 for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:8888/playback/live/x/seg.mp4 && break; sleep 0.5; done
-ok=$(curl -s -w ' %{http_code}' --path-as-is http://127.0.0.1:8888/playback/live/x/seg.mp4)
+ok=$(curl -s -w ' %{http_code}' --path-as-is http://127.0.0.1:8888/playback/live/x/seg.mp4 | tr -d '\n')
 echo "enregistrement normal -> $ok"
 case "$ok" in *"RECORDING-OK 200") ;; *) echo "ÉCHEC : un enregistrement normal n'est plus servi"; exit 1;; esac
 leaks=0
@@ -30,7 +30,7 @@ for p in \
   /.tls/server.key \
   /playback/.tls/
 do
-  r=$(curl -s -w ' %{http_code}' --path-as-is "http://127.0.0.1:8888$p")
+  r=$(curl -s -w ' %{http_code}' --path-as-is "http://127.0.0.1:8888$p" | tr -d '\n')
   if echo "$r" | grep -q SECRET-KEY-MARKER-R2; then echo "FUITE  $p -> ${r##* }"; leaks=$((leaks+1)); else echo "ok     $p -> ${r##* }"; fi
 done
 case "$mode" in
