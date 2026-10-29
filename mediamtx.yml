@@ -30,6 +30,7 @@ authInternalUsers:
     ips: []
     permissions:
       - action: publish
+  # __BRAND_PUBLISHERS__ (start.sh: one user per key of STREAM_PUBLISH_KEYS)
   - user: any
     pass:
     ips: ['127.0.0.1', '::1']
