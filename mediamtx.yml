@@ -89,17 +89,13 @@ pathDefaults:
   # must be rotated. The header value uses double quotes so the container shell
   # expands $STREAM_WEBHOOK_SECRET at runtime (MediaMTX runs hooks via sh -c).
   # ⚠️ Verify on a rehearsal stream that the env var is set before relying on it.
-  runOnReady: >
-    wget -q -O /dev/null --post-data '{"event":"ready","path":"$MTX_PATH"}'
-    --header='Content-Type: application/json'
-    --header="x-stream-secret: $STREAM_WEBHOOK_SECRET"
-    'https://www.arobase-live.com/api/stream/event' || true
-  # Notify backend when stream stops → triggers replay
-  runOnNotReady: >
-    wget -q -O /dev/null --post-data '{"event":"disconnect","path":"$MTX_PATH"}'
-    --header='Content-Type: application/json'
-    --header="x-stream-secret: $STREAM_WEBHOOK_SECRET"
-    'https://www.arobase-live.com/api/stream/event' || true
+  # Correction du 29/10 : MediaMTX lance ces commandes SANS shell (il découpe la
+  # ligne lui-même, mesuré sur 1.9.3) ; le « || true » d'avant arrivait à wget
+  # comme deux URLs de plus. notify.sh lit STREAM_WEBHOOK_SECRET dans
+  # l'environnement du conteneur et essaie STREAM_EVENT_URL (réseau privé
+  # Railway) puis le domaine public. Pas de ||, de redirection ni de $VAR ici.
+  runOnReady: /notify.sh ready
+  runOnNotReady: /notify.sh disconnect
 
 paths:
   # Multi-cam angles (generic keys): NOT recorded. The replay only reads the

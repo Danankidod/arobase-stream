@@ -17,7 +17,8 @@ RUN wget -O /tmp/mediamtx.tar.gz \
 COPY mediamtx.yml /etc/mediamtx/mediamtx.yml
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY start.sh /start.sh
-RUN chmod +x /start.sh
+COPY notify.sh /notify.sh
+RUN chmod +x /start.sh /notify.sh
 
 # Create recordings directory (will be mounted as Railway Volume)
 RUN mkdir -p /recordings
