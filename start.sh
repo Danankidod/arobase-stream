@@ -65,41 +65,62 @@ brand_publishers() {
 }
 
 # RTMPS (R2) : certificat Let's Encrypt de STREAM_TLS_DOMAIN par défi DNS-01
-# Cloudflare (CF_Token, CF_Zone_ID), conservé sur le volume dans $REC/.tls
-# (dossier 700, fichiers 600 ; nginx refuse tout segment caché, il n'est jamais
-# servi). RTMPS s'AJOUTE au RTMP en clair (rtmpEncryption optional). Si le
-# certificat est indisponible, le stream démarre quand même, en RTMP seul.
-# Renouvellement : acme.sh --cron chaque jour ; MediaMTX recharge le certificat
-# sans redémarrer ni couper les flux (mesuré en labo le 29/10, 1.19.1).
+# Cloudflare (CF_Token, CF_Zone_ID). RTMPS s'AJOUTE au RTMP en clair
+# (rtmpEncryption optional). Règles :
+# - seuls server.crt et server.key sont conservés sur le volume ($REC/.tls,
+#   dossier 700, fichiers 600 ; nginx refuse tout segment caché) ;
+# - la config d'acme.sh (compte, account.conf qui enregistre le jeton, logs)
+#   vit sur le disque éphémère du conteneur ($ACME_HOME) : le jeton n'est
+#   jamais écrit sur le volume, il vient de l'environnement à chaque exécution ;
+# - un certificat encore valide → démarrage IMMÉDIAT en optional ; s'il expire
+#   dans moins de 30 jours, renouvellement en arrière-plan, rechargé à chaud par
+#   MediaMTX (mesuré en labo le 29/10, 1.19.1). Un redémarrage pendant un live
+#   n'attend jamais Let's Encrypt ;
+# - aucun certificat valide → émission bloquante (240 s max) ; en cas d'échec,
+#   démarrage en RTMP seul, échec signalé.
 TLS_DIR=${TLS_DIR:-$REC/.tls}
+ACME_HOME=${ACME_HOME:-/tmp/acme}
 TLS_DOMAIN=${STREAM_TLS_DOMAIN:-ingest.arobase-live.com}
 RTMP_ENCRYPTION=no
-tls_valid() {
+cert_valid_for() { # <secondes> : le certificat existe et reste valide au moins ce délai
   [ -s "$TLS_DIR/server.crt" ] && [ -s "$TLS_DIR/server.key" ] \
-    && openssl x509 -in "$TLS_DIR/server.crt" -noout -checkend 2592000 >/dev/null 2>&1
+    && openssl x509 -in "$TLS_DIR/server.crt" -noout -checkend "$1" >/dev/null 2>&1
+}
+issue_cert() {
+  mkdir -p "$ACME_HOME" && chmod 700 "$ACME_HOME"
+  timeout 240 acme.sh --home "$ACME_HOME" --issue --force --dns dns_cf -d "$TLS_DOMAIN" \
+      --server letsencrypt --keylength ec-256 > "$ACME_HOME/last-issue.log" 2>&1 \
+    && acme.sh --home "$ACME_HOME" --install-cert -d "$TLS_DOMAIN" --ecc \
+      --key-file "$TLS_DIR/server.key" --fullchain-file "$TLS_DIR/server.crt" \
+      >> "$ACME_HOME/last-issue.log" 2>&1
+  rc=$?
+  chmod 600 "$TLS_DIR/server.key" "$TLS_DIR/server.crt" 2>/dev/null
+  return $rc
+}
+renew_loop() { # en arrière-plan : vérifie chaque jour, réémet à moins de 30 jours
+  while :; do
+    if ! cert_valid_for 2592000; then
+      if issue_cert; then echo "[start.sh] RTMPS: certificate renewed (hot reload by MediaMTX)"
+      else echo "[start.sh] RTMPS: certificate renewal FAILED (see $ACME_HOME/last-issue.log)" >&2; fi
+    fi
+    sleep 86400
+  done
 }
 if [ -n "${CF_Token:-}" ] && [ -n "${CF_Zone_ID:-}" ]; then
-  mkdir -p "$TLS_DIR/acme" && chmod 700 "$TLS_DIR" "$TLS_DIR/acme"
-  if ! tls_valid; then
-    echo "[start.sh] RTMPS: issuing certificate for $TLS_DOMAIN (DNS-01)..."
-    if timeout 240 acme.sh --home "$TLS_DIR/acme" --issue --dns dns_cf -d "$TLS_DOMAIN" \
-         --server letsencrypt --keylength ec-256 > "$TLS_DIR/acme/last-issue.log" 2>&1 \
-       && acme.sh --home "$TLS_DIR/acme" --install-cert -d "$TLS_DOMAIN" --ecc \
-         --key-file "$TLS_DIR/server.key" --fullchain-file "$TLS_DIR/server.crt" \
-         >> "$TLS_DIR/acme/last-issue.log" 2>&1; then
+  mkdir -p "$TLS_DIR" && chmod 700 "$TLS_DIR"
+  if cert_valid_for 0; then
+    RTMP_ENCRYPTION=optional
+    cert_valid_for 2592000 || echo "[start.sh] RTMPS: certificate expires within 30 days, renewing in background"
+  else
+    echo "[start.sh] RTMPS: no valid certificate, issuing for $TLS_DOMAIN (DNS-01)..."
+    if issue_cert; then
       echo "[start.sh] RTMPS: certificate issued"
+      RTMP_ENCRYPTION=optional
     else
-      echo "[start.sh] RTMPS: certificate issuance FAILED, starting with RTMP only (see $TLS_DIR/acme/last-issue.log)" >&2
+      echo "[start.sh] RTMPS: certificate issuance FAILED, starting with RTMP only (see $ACME_HOME/last-issue.log)" >&2
     fi
   fi
-  chmod 600 "$TLS_DIR/server.key" "$TLS_DIR/server.crt" 2>/dev/null || true
-  if tls_valid; then
-    RTMP_ENCRYPTION=optional
-    ( while sleep 86400; do
-        acme.sh --home "$TLS_DIR/acme" --cron > /dev/null 2>&1
-        chmod 600 "$TLS_DIR/server.key" "$TLS_DIR/server.crt" 2>/dev/null
-      done ) &
-  fi
+  [ "$RTMP_ENCRYPTION" = optional ] && renew_loop &
 else
   echo "[start.sh] RTMPS: CF_Token/CF_Zone_ID not set, RTMP only"
 fi
