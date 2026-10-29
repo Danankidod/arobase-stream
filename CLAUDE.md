@@ -64,7 +64,7 @@ docker run -p 8888:8888 -p 1935:1935 \
 ## 7. Sécurité (détail + audit : `../arobase-live/docs/SECURITY-AUDIT-2026-06.md`)
 
 **Corrigé (déployé + validé en prod, juin 2026)** :
-- ✅ **F1** secret webhook → env `STREAM_WEBHOOK_SECRET` (plus de hardcode ; l'ancien `arobase_stream_webhook_2026` a été **roté le 2026-06-17** — reste dans l'historique git, ne jamais réutiliser). Rotation documentée : `../arobase-live/docs/SECRET-ROTATION.md`.
+- ✅ **F1** secret webhook → env `STREAM_WEBHOOK_SECRET` (plus de hardcode ; l'ancien `[valeur retirée — sha256 de271117f3ce…]` a été **roté le 2026-06-17** — reste dans l'historique git, ne jamais réutiliser). Rotation documentée : `../arobase-live/docs/SECRET-ROTATION.md`.
 - ✅ **F2** auth RTMP : `authMethod: internal` + user `publisher` (mot de passe injecté au boot par `start.sh` depuis `STREAM_PUBLISH_PASSWORD`). Les viewers gardent un accès HLS/replay anonyme (`read`+`playback`). Testé : bon mdp publie, mauvais rejeté.
 - ✅ **F7** API/metrics/pprof → `apiAddress: 127.0.0.1:9997` (localhost only).
 - ✅ **F11** `autoindex off` sur `/playback/`.
