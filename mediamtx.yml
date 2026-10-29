@@ -56,6 +56,13 @@ hlsSegmentDuration: 1s
 # RTMP input
 rtmp: yes
 rtmpAddress: :1935
+# RTMPS (R2), EN PLUS du RTMP en clair : start.sh remplace __RTMP_ENCRYPTION__ par
+# "optional" si le certificat est disponible, "no" sinon (RTMP seul). Port 1936 =
+# second proxy TCP Railway (iriguchi.proxy.rlwy.net:52512 → 1936).
+rtmpEncryption: "__RTMP_ENCRYPTION__"
+rtmpsAddress: :1936
+rtmpServerKey: __TLS_DIR__/server.key
+rtmpServerCert: __TLS_DIR__/server.crt
 
 # Playback — serve recorded streams for replay
 playback: yes
