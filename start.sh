@@ -29,10 +29,49 @@ fi
 # env var is missing rather than silently running with a guessable password.
 # Use an alphanumeric secret (e.g. `openssl rand -hex 24`) so the sed below is
 # safe (no /, &, | or backslash to escape).
-: "${STREAM_PUBLISH_PASSWORD:?STREAM_PUBLISH_PASSWORD env var is required}"
-RUNTIME_CONFIG=/tmp/mediamtx.runtime.yml
-sed "s|__STREAM_PUBLISH_PASSWORD__|${STREAM_PUBLISH_PASSWORD}|g" \
-  /etc/mediamtx/mediamtx.yml > "$RUNTIME_CONFIG"
+#
+# Per-brand publishers: with STREAM_PUBLISH_MASTER set, each key of
+# STREAM_PUBLISH_KEYS (comma-separated) gets its own user, allowed to publish on
+# live/<key> only, plus one "operator" user for live/liveA|liveB|liveC.
+# pass = HMAC-SHA256(master, "publish:<label>") hex[0:32], the derivation of
+# arobase-live server/lib/stream-credentials.ts. Only its sha256 is written.
+# Without STREAM_PUBLISH_PASSWORD the shared publisher gets a random, never
+# shared password (end of the migration).
+if [ -z "${STREAM_PUBLISH_MASTER:-}" ]; then
+  : "${STREAM_PUBLISH_PASSWORD:?STREAM_PUBLISH_PASSWORD or STREAM_PUBLISH_MASTER env var is required}"
+fi
+LEGACY_PASS=${STREAM_PUBLISH_PASSWORD:-$(openssl rand -hex 32)}
+
+publisher_user() { # <user> <label> <path>...
+  _pass=$(printf '%s' "publish:$2" | openssl dgst -sha256 -hmac "$STREAM_PUBLISH_MASTER" -r | cut -c1-32)
+  _hash=$(printf '%s' "$_pass" | openssl dgst -sha256 -binary | openssl base64 -A)
+  printf '  - user: %s\n    pass: sha256:%s\n    ips: []\n    permissions:\n' "$1" "$_hash"
+  shift 2
+  for _p in "$@"; do printf '      - action: publish\n        path: %s\n' "$_p"; done
+}
+
+brand_publishers() {
+  [ -n "${STREAM_PUBLISH_MASTER:-}" ] || return 0
+  publisher_user operator multicam live/liveA live/liveB live/liveC
+  for _key in $(printf '%s' "${STREAM_PUBLISH_KEYS:-}" | tr ',' ' '); do
+    case "$_key" in
+      ''|*[!A-Za-z0-9_-]*|liveA|liveB|liveC) echo "[start.sh] STREAM_PUBLISH_KEYS: invalid key skipped" >&2; continue ;;
+    esac
+    publisher_user "$_key" "live/$_key" "live/$_key"
+  done
+}
+
+RUNTIME_CONFIG=${RUNTIME_CONFIG:-/tmp/mediamtx.runtime.yml}
+PUBLISHERS_FILE=$(mktemp)
+brand_publishers > "$PUBLISHERS_FILE"
+sed -e "s|__STREAM_PUBLISH_PASSWORD__|${LEGACY_PASS}|g" \
+    -e "/# __BRAND_PUBLISHERS__/{
+r $PUBLISHERS_FILE
+d
+}" \
+  "${MEDIAMTX_CONFIG:-/etc/mediamtx/mediamtx.yml}" > "$RUNTIME_CONFIG"
+rm -f "$PUBLISHERS_FILE"
+echo "[start.sh] $(grep -c 'action: publish' "$RUNTIME_CONFIG") publish permissions configured"
 
 # Start nginx in background (reverse proxy: port 8888)
 nginx &

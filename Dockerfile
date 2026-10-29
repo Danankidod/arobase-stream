@@ -1,7 +1,7 @@
 FROM alpine:3.20
 
-# Install nginx + wget
-RUN apk add --no-cache wget tar nginx
+# Install nginx + wget + openssl (per-brand publisher credentials in start.sh)
+RUN apk add --no-cache wget tar nginx openssl
 
 # Download MediaMTX
 # 1.19.1 (from 1.9.3) — security fixes since: hook command injection (1.18.1),
