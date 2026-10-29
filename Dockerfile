@@ -1,7 +1,7 @@
 FROM alpine:3.20
 
-# Install nginx + wget + openssl (per-brand publisher credentials in start.sh)
-RUN apk add --no-cache wget tar nginx openssl
+# Install nginx + wget + openssl (per-brand publisher credentials) + acme.sh (RTMPS certificate)
+RUN apk add --no-cache wget tar nginx openssl acme.sh
 
 # Download MediaMTX
 # 1.19.1 (from 1.9.3) — security fixes since: hook command injection (1.18.1),
@@ -27,5 +27,7 @@ RUN mkdir -p /recordings
 EXPOSE 8888
 # RTMP port (Railway TCP Proxy for OBS)
 EXPOSE 1935
+# RTMPS port (second Railway TCP proxy)
+EXPOSE 1936
 
 CMD ["/start.sh"]

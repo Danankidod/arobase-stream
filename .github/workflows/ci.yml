@@ -61,3 +61,19 @@ jobs:
           # anything once the fix is merged (main then no longer leaks).
           sh test/replay-errors.sh test/nginx.before-b9.conf expect-leak
           sh test/replay-errors.sh nginx.conf expect-clean
+
+      - name: R2 — nginx never serves hidden paths (red on frozen pre-R2 config, green here)
+        run: |
+          sh test/hidden-paths.sh test/nginx.before-r2.conf expect-leak
+          sh test/hidden-paths.sh nginx.conf expect-clean
+
+      - name: R2 — start.sh TLS logic (no network, fake acme.sh)
+        run: docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/tls-start.sh
+
+      - name: R2 — acme.sh package exists on alpine 3.20
+        run: docker run --rm alpine:3.20 sh -c 'apk add -q --no-cache acme.sh >/dev/null && acme.sh --version | head -2'
+
+      - name: R2 — official MediaMTX 1.19.1 starts in no and optional, RTMP + RTMPS accepted
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+          sh test/mediamtx-rtmps.sh
