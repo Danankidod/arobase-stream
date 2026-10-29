@@ -9,7 +9,7 @@
 | Avant | Après |
 |---|---|
 | RTMP ouvert (n'importe qui peut pousser) | RTMP exige l'utilisateur `publisher` + mot de passe |
-| Secret webhook `arobase_stream_webhook_2026` en clair dans `mediamtx.yml` | lu depuis `$STREAM_WEBHOOK_SECRET` (env) |
+| Secret webhook `[valeur retirée — sha256 de271117f3ce…]` en clair dans `mediamtx.yml` | lu depuis `$STREAM_WEBHOOK_SECRET` (env) |
 | API MediaMTX `:9997` joignable | API liée à `127.0.0.1` (interne) |
 | `autoindex on` sur `/playback/` | désactivé, CORS restreint à l'app |
 
@@ -82,6 +82,6 @@ Si l'ingest casse en répétition :
 
 ## 7. Après bascule réussie
 
-- Roter définitivement l'ancien secret `arobase_stream_webhook_2026` (déjà fait via l'env, mais il reste dans l'historique git — ne jamais le réutiliser).
+- Roter définitivement l'ancien secret `[valeur retirée — sha256 de271117f3ce…]` (déjà fait via l'env, mais il reste dans l'historique git — ne jamais le réutiliser).
 - F3 (RLS `brand_accounts`) est indépendant et suit son propre runbook
   (`arobase-live/docs/SECURITY-AUDIT-2026-06.md` §Runbook F3).
