@@ -1,15 +1,16 @@
 #!/bin/sh
 
-# Volume safety net on boot — two-phase cleanup:
+# Volume safety net — two-phase cleanup, on boot then every CLEANUP_INTERVAL seconds
+# (default 10 min), so a volume that fills up during an event is caught without a restart:
 #   1) Hard delete anything older than 7 days (mirrors mediamtx recordDeleteAfter)
 #   2) If volume usage > 80%, evict oldest files first until we drop below 60%
 # This prevents a runaway scenario (e.g. unexpected high-frequency shows) from
 # saturating the 5 GB Railway volume mid-event.
+# .tls (certificat RTMPS, compte ACME) est exclu des deux phases : le supprimer
+# forcerait une réémission à chaque démarrage (limite Let's Encrypt).
 REC=${RECORDINGS_DIR:-/recordings}
-if [ -d "$REC" ]; then
-  # .tls (certificat RTMPS, compte ACME) est exclu des deux phases : le supprimer
-  # forcerait une réémission à chaque démarrage (limite Let's Encrypt).
-  echo "[start.sh] Phase 1: prune $REC older than 7 days..."
+CLEANUP_INTERVAL=${CLEANUP_INTERVAL:-600}
+cleanup_volume() {
   find "$REC" -path "$REC/.tls" -prune -o -type f -mmin +10080 -exec rm -f {} + 2>/dev/null
   find "$REC" -path "$REC/.tls" -prune -o -type d -empty -exec rmdir {} + 2>/dev/null
 
@@ -23,9 +24,15 @@ if [ -d "$REC" ]; then
       rm -f "$PATH_"
     done
     find "$REC" -path "$REC/.tls" -prune -o -type d -empty -exec rmdir {} + 2>/dev/null
+    echo "[start.sh] Phase 2 done: volume at $(df "$REC" | tail -1 | awk '{print $5}')"
   fi
-
+}
+if [ -d "$REC" ]; then
+  echo "[start.sh] Phase 1: prune $REC older than 7 days..."
+  cleanup_volume
   echo "[start.sh] $REC disk usage: $(du -sh "$REC" 2>/dev/null | cut -f1) ($(df "$REC" | tail -1 | awk '{print $5}') of volume)"
+  # Silent unless phase 2 has to act.
+  ( while :; do sleep "$CLEANUP_INTERVAL"; cleanup_volume; done ) &
 fi
 
 # Inject the RTMP publish password (F2) into a runtime config. The committed
