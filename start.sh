@@ -16,7 +16,8 @@ if [ -d "$REC" ]; then
   USAGE_PCT=$(df "$REC" 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
   if [ -n "$USAGE_PCT" ] && [ "$USAGE_PCT" -gt 80 ]; then
     echo "[start.sh] Phase 2: volume at ${USAGE_PCT}% — LRU eviction until <60%..."
-    find "$REC" -path "$REC/.tls" -prune -o -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | while read TS PATH_; do
+    # busybox find has no -printf: mtimes come from stat (busybox and GNU).
+    find "$REC" -path "$REC/.tls" -prune -o -type f -exec stat -c '%Y %n' {} + 2>/dev/null | sort -n | while read -r TS PATH_; do
       CUR=$(df "$REC" | tail -1 | awk '{print $5}' | tr -d '%')
       [ "$CUR" -lt 60 ] && break
       rm -f "$PATH_"
