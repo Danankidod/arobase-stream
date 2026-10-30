@@ -70,6 +70,12 @@ jobs:
       - name: R2 — start.sh TLS logic (no network, fake acme.sh)
         run: docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/tls-start.sh
 
+      - name: A4 — volume over 80 % evicts oldest files below 60 %, .tls untouched (red on frozen pre-A4 start.sh, green here)
+        run: |
+          # test/start.before-a4.sh = start.sh at 09860cf (find -printf, absent from busybox).
+          docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-evict.sh /w/test/start.before-a4.sh expect-stuck
+          docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-evict.sh /w/start.sh expect-evict
+
       - name: R2 — acme.sh package exists on alpine 3.20
         run: docker run --rm alpine:3.20 sh -c 'apk add -q --no-cache acme.sh >/dev/null && acme.sh --version | head -2'
 
