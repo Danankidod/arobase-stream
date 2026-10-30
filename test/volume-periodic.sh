@@ -33,7 +33,8 @@ for i in $(seq 1 11); do
 done
 age $REC/.tls/server.key 600
 # Un seul renommage : le volume passe d'un coup à ~90 %, sans course avec le nettoyage.
-mv /tmp/stage $REC/live/show
+# (le nettoyage du démarrage a retiré $REC/live, resté vide)
+mkdir -p $REC/live && mv /tmp/stage $REC/live/show
 filled=$(df $REC | tail -1 | awk '{print $5}')
 sleep 6
 after=$(df $REC | tail -1 | awk '{print $5}' | tr -d %)
