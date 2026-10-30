@@ -76,6 +76,14 @@ jobs:
           docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-evict.sh /w/test/start.before-a4.sh expect-stuck
           docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-evict.sh /w/start.sh expect-evict
 
+      - name: A4b — cleanup also runs periodically, no restart needed (red on frozen pre-A4b start.sh, green here)
+        run: |
+          # test/start.before-a4b.sh = start.sh at 4df1549 (cleanup on boot only).
+          docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-periodic.sh /w/test/start.before-a4b.sh expect-stuck
+          docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-periodic.sh /w/start.sh expect-evict
+          # Boot-time eviction (A4) still green with the refactor.
+          docker run --rm -v "$PWD:/w:ro" alpine:3.20 sh /w/test/volume-evict.sh /w/start.sh expect-evict
+
       - name: R2 — acme.sh package exists on alpine 3.20
         run: docker run --rm alpine:3.20 sh -c 'apk add -q --no-cache acme.sh >/dev/null && acme.sh --version | head -2'
 
