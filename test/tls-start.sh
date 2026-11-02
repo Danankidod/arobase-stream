@@ -38,14 +38,14 @@ run() { # <cas> <acme : none|fail|ok> [env...]
 }
 fresh_volume() {
   rm -rf /tmp/rec; mkdir -p /tmp/rec/live/old /tmp/rec/.tls
-  touch -d "@$(( $(date +%s) - 9*86400 ))" /tmp/rec/live/old/seg.mp4
+  touch -d "@$(( $(date +%s) - 31*86400 ))" /tmp/rec/live/old/seg.mp4
   echo "ancien" > /tmp/rec/.tls/keep && touch -d "@$(( $(date +%s) - 9*86400 ))" /tmp/rec/.tls/keep
 }
 
 fresh_volume; run sans-cf none
 [ "$enc" = no ] || fail "sans variables CF : rtmpEncryption devrait être no"
 grep -q "__RTMP_ENCRYPTION__\|__TLS_DIR__" /tmp/rt-sans-cf.yml && fail "marqueur non remplacé"
-[ ! -e /tmp/rec/live/old/seg.mp4 ] || fail "le nettoyage des 7 jours ne supprime plus les vieux enregistrements"
+[ ! -e /tmp/rec/live/old/seg.mp4 ] || fail "le nettoyage (30 jours par défaut) ne supprime plus les vieux enregistrements"
 [ -e /tmp/rec/.tls/keep ] || fail "le nettoyage a supprimé un fichier de .tls"
 
 fresh_volume; run emission-ko fail CF_Token=$TOKEN CF_Zone_ID=zone

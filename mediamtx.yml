@@ -87,7 +87,7 @@ pathDefaults:
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S_%f
   recordFormat: fmp4
   recordSegmentDuration: 60m
-  recordDeleteAfter: 168h
+  recordDeleteAfter: 720h
 
   # Notify backend when stream starts.
   # The webhook secret is read from the STREAM_WEBHOOK_SECRET env var (injected

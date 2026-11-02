@@ -2,7 +2,7 @@
 
 # Volume safety net — two-phase cleanup, on boot then every CLEANUP_INTERVAL seconds
 # (default 10 min), so a volume that fills up during an event is caught without a restart:
-#   1) Hard delete anything older than REPLAY_RETENTION_HOURS (default 7 days, mirrors mediamtx recordDeleteAfter)
+#   1) Hard delete anything older than REPLAY_RETENTION_HOURS (default 30 days, mirrors mediamtx recordDeleteAfter)
 #   2) If volume usage > 80%, evict oldest files first until we drop below 60%
 # This prevents a runaway scenario (e.g. unexpected high-frequency shows) from
 # saturating the 5 GB Railway volume mid-event.
@@ -11,9 +11,9 @@
 REC=${RECORDINGS_DIR:-/recordings}
 CLEANUP_INTERVAL=${CLEANUP_INTERVAL:-600}
 # Replay retention, in hours: one value for both MediaMTX (recordDeleteAfter) and
-# phase 1 below. Default 168 h (7 days). Longer retention needs a bigger volume:
+# phase 1 below. Default 720 h (30 days). Retention needs room on the volume:
 # phase 2 still evicts the oldest files when the volume passes 80 %.
-REPLAY_RETENTION_HOURS=${REPLAY_RETENTION_HOURS:-168}
+REPLAY_RETENTION_HOURS=${REPLAY_RETENTION_HOURS:-720}
 case "$REPLAY_RETENTION_HOURS" in
   ''|*[!0-9]*|0) echo "[start.sh] REPLAY_RETENTION_HOURS must be a positive whole number of hours, got '$REPLAY_RETENTION_HOURS'"; exit 1 ;;
 esac
@@ -147,7 +147,7 @@ brand_publishers > "$PUBLISHERS_FILE"
 sed -e "s|__STREAM_PUBLISH_PASSWORD__|${LEGACY_PASS}|g" \
     -e "s|__RTMP_ENCRYPTION__|${RTMP_ENCRYPTION}|g" \
     -e "s|__TLS_DIR__|${TLS_DIR}|g" \
-    -e "s|recordDeleteAfter: 168h|recordDeleteAfter: ${REPLAY_RETENTION_HOURS}h|" \
+    -e "s|recordDeleteAfter: [0-9]*h|recordDeleteAfter: ${REPLAY_RETENTION_HOURS}h|" \
     -e "/# __BRAND_PUBLISHERS__/{
 r $PUBLISHERS_FILE
 d
