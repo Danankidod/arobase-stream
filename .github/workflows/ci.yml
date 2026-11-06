@@ -60,6 +60,15 @@ jobs:
             apk add -q --no-cache openssl >/dev/null
             sh /w/test/retention.sh /w/start.sh /w/mediamtx.yml'
 
+      - name: 06/11 — the 3 multi-cam angles are recorded (real MediaMTX 1.19.1, red on frozen pre-change config)
+        run: |
+          # test/mediamtx.before-angles.yml = mediamtx.yml before the change (angles in record: no).
+          sudo apt-get install -y -qq ffmpeg
+          wget -q -O /tmp/m.tar.gz https://github.com/bluenviron/mediamtx/releases/download/v1.19.1/mediamtx_v1.19.1_linux_amd64.tar.gz
+          tar -xzf /tmp/m.tar.gz -C /tmp mediamtx
+          sh test/angles-recorded.sh test/mediamtx.before-angles.yml /tmp/mediamtx expect-not-recorded
+          sh test/angles-recorded.sh mediamtx.yml /tmp/mediamtx expect-recorded
+
       - name: B9 — /replay errors do not leak disk paths (red on the frozen pre-B9 config, green here)
         run: |
           # test/nginx.before-b9.conf = nginx.conf at f88d060, the last commit before

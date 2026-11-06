@@ -34,7 +34,7 @@ Couche **ingest + diffusion vidéo** du produit ARObase LIVE (live shopping de d
 
 RTSP / WebRTC / SRT / **MoQ** : désactivés.
 
-**Recording** (sous `pathDefaults:` depuis MediaMTX 1.19) : `record: yes`, `recordPath: /recordings/%path/...`, `recordFormat: fmp4`, segments 60 min, `recordDeleteAfter: 720h` (30 j, réglable par `REPLAY_RETENTION_HOURS`). Volume Railway 5 GB ; `start.sh` purge en LRU si >80%.
+**Recording** (sous `pathDefaults:` depuis MediaMTX 1.19) : `record: yes`, `recordPath: /recordings/%path/...`, `recordFormat: fmp4`, segments 60 min, `recordDeleteAfter: 720h` (30 j, réglable par `REPLAY_RETENTION_HOURS`). Les 3 angles multicam (`liveA|liveB|liveC`) sont enregistrés depuis le 06/11, comme la clé de marque. Volume Railway à 40 GB visé (5 shows d'1 h par mois, 3 angles, 30 j, 30 % de marge) ; `start.sh` purge en LRU si >80%.
 
 ## 4. Webhook backend (`mediamtx.yml` paths.all_others)
 

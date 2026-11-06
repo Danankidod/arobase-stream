@@ -1,0 +1,117 @@
+# MediaMTX Configuration for ARObase LIVE
+
+logLevel: info
+logDestinations: [stdout]
+
+# API — bound to localhost only (F7). The control API (/v3/*), /metrics and
+# /pprof must not be reachable from outside the container. Nothing in arobase
+# calls them remotely (replay resolution goes through the playback server :9998
+# via nginx), so localhost-only closes the exposure without breaking anything.
+api: yes
+apiAddress: 127.0.0.1:9997
+
+# Authentication (F2). Viewers read HLS + playback anonymously (the 'any' user
+# keeps read + playback). Publishing (RTMP ingest from OBS) now requires the
+# 'publisher' user: its password is injected at boot by start.sh from the
+# STREAM_PUBLISH_PASSWORD env var — the committed value below is only a
+# placeholder, never a real secret. API/metrics/pprof stay localhost-only.
+# ⚠️ OBS must publish to:  rtmp://<host>:1935/live/<stream_key>?user=publisher&pass=<password>
+# Deploy + reconfigure OBS together and verify on a rehearsal stream.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+      - action: playback
+  - user: publisher
+    pass: __STREAM_PUBLISH_PASSWORD__
+    ips: []
+    permissions:
+      - action: publish
+  # __BRAND_PUBLISHERS__ (start.sh: one user per key of STREAM_PUBLISH_KEYS)
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1']
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
+
+# HLS output
+hls: yes
+hlsAddress: :8889
+hlsAllowOrigins: ['*']
+hlsVariant: mpegts
+# 8 × 1s = 8s buffer kept on the server. The previous 3 × 1s = 3s buffer caused
+# viewers to freeze whenever their player drifted >3s behind — every recovered
+# network hiccup made the player request segments MediaMTX had already deleted,
+# producing seg14.ts/seg17.ts 404s and a stuck video. 8s is the standard
+# tradeoff: low enough to stay near-live, large enough to absorb routine
+# packet jitter without 404s.
+hlsSegmentCount: 8
+hlsSegmentDuration: 1s
+
+# RTMP input
+rtmp: yes
+rtmpAddress: :1935
+# RTMPS (R2), EN PLUS du RTMP en clair : start.sh remplace __RTMP_ENCRYPTION__ par
+# "optional" si le certificat est disponible, "no" sinon (RTMP seul). Port 1936 =
+# second proxy TCP Railway (iriguchi.proxy.rlwy.net:52512 → 1936).
+rtmpEncryption: "__RTMP_ENCRYPTION__"
+rtmpsAddress: :1936
+rtmpServerKey: __TLS_DIR__/server.key
+rtmpServerCert: __TLS_DIR__/server.crt
+
+# Playback — serve recorded streams for replay
+playback: yes
+playbackAddress: :9998
+
+
+# Disable unused protocols (minimise attack surface). MoQ is enabled by default
+# since MediaMTX 1.19 — we don't use it, so turn it off too.
+rtsp: no
+webrtc: no
+srt: no
+moq: no
+
+# Recording — save all streams as MP4 for replay.
+# Keep 7 days so viewers can still pre-order from replays after a show.
+# At ~1.5 GB per show × 1-2 shows/week, we stay well under the 5 GB volume cap.
+# start.sh has a safety net that purges oldest files first if usage > 80%.
+# NB (MediaMTX 1.19): record* moved under pathDefaults (the top-level keys are
+# deprecated). pathDefaults applies to every path, incl. the all_others catch-all.
+pathDefaults:
+  record: yes
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S_%f
+  recordFormat: fmp4
+  recordSegmentDuration: 60m
+  recordDeleteAfter: 720h
+
+  # Notify backend when stream starts.
+  # The webhook secret is read from the STREAM_WEBHOOK_SECRET env var (injected
+  # at deploy time, e.g. Railway). It is NOT hardcoded here — the previous
+  # committed value ([valeur retirée — sha256 de271117f3ce…]) is considered compromised and
+  # must be rotated. The header value uses double quotes so the container shell
+  # expands $STREAM_WEBHOOK_SECRET at runtime (MediaMTX runs hooks via sh -c).
+  # ⚠️ Verify on a rehearsal stream that the env var is set before relying on it.
+  # Correction du 29/10 : MediaMTX lance ces commandes SANS shell (il découpe la
+  # ligne lui-même, mesuré sur 1.9.3) ; le « || true » d'avant arrivait à wget
+  # comme deux URLs de plus. notify.sh lit STREAM_WEBHOOK_SECRET dans
+  # l'environnement du conteneur et essaie STREAM_EVENT_URL (réseau privé
+  # Railway) puis le domaine public. Pas de ||, de redirection ni de $VAR ici.
+  runOnReady: /notify.sh ready
+  runOnNotReady: /notify.sh disconnect
+
+paths:
+  # Multi-cam angles (generic keys): NOT recorded. The replay only reads the
+  # brand key, and three cameras (~1.9 GB/h each) fill the 5 GB volume in under
+  # an hour. Webhooks still fire (pathDefaults). See arobase-live TODO-multicam.md
+  # (REPLAY MULTICAM) before recording the program angle again.
+  "~^live/(liveA|liveB|liveC)$":
+    source: publisher
+    record: no
+  # Any other path (brand keys): recorded, as before.
+  all_others:
+    source: publisher

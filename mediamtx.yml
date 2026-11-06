@@ -77,8 +77,8 @@ srt: no
 moq: no
 
 # Recording — save all streams as MP4 for replay.
-# Keep 7 days so viewers can still pre-order from replays after a show.
-# At ~1.5 GB per show × 1-2 shows/week, we stay well under the 5 GB volume cap.
+# Keep 30 days (REPLAY_RETENTION_HOURS, default 720) so viewers can still
+# pre-order from replays after a show. Brand key and the 3 multi-cam angles.
 # start.sh has a safety net that purges oldest files first if usage > 80%.
 # NB (MediaMTX 1.19): record* moved under pathDefaults (the top-level keys are
 # deprecated). pathDefaults applies to every path, incl. the all_others catch-all.
@@ -105,13 +105,12 @@ pathDefaults:
   runOnNotReady: /notify.sh disconnect
 
 paths:
-  # Multi-cam angles (generic keys): NOT recorded. The replay only reads the
-  # brand key, and three cameras (~1.9 GB/h each) fill the 5 GB volume in under
-  # an hour. Webhooks still fire (pathDefaults). See arobase-live TODO-multicam.md
-  # (REPLAY MULTICAM) before recording the program angle again.
+  # Multi-cam angles (generic keys): recorded since 06/11, like brand keys
+  # (pathDefaults). About 1.3 to 1.9 GB/h per angle: the volume is sized for it
+  # (40 GB for 5 one-hour shows a month over 30 days). The replay page still only
+  # reads the brand key, see arobase-live TODO-multicam.md (REPLAY MULTICAM).
   "~^live/(liveA|liveB|liveC)$":
     source: publisher
-    record: no
   # Any other path (brand keys): recorded, as before.
   all_others:
     source: publisher
